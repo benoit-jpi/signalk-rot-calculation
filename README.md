@@ -1,6 +1,6 @@
 # signalk-rot-calculation
 
-## Compute the rateOfTurn from multiple references
+## Compute self.navigation.rateOfTurn from multiple references
 
 - from headingTrue
 - from headingMagnetic
