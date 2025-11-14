@@ -126,7 +126,9 @@ function computeROT(times, values) {
     const avg = computeCircularMean(values);
 
     const x0 = times[0];
+    // times array mapped to relative instants
     const mappedTimes = times.map((x) => (x - x0)/1000);
+    // values mapped around the average
     const mappedValues = values.map((y) => normalize(y - avg));
 
     return computeSlope(mappedTimes, mappedValues);
