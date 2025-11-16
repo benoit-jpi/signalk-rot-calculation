@@ -2,7 +2,7 @@
     "name": "signalk-rot-calculation",
     "version": "0.1.0",
     "description": "Signal K plugin to compute the rateOfTurn from multiple references.",
-    "main": "index.js",
+    "main": "plugin/index.js",
     "scripts": {
 	"changelog": "github-changes -o benoit-jpi -r signalk-rot-calculation -a --only-pulls --use-commit-body --data=pulls  --tag-name=v$npm_package_version",
 	"test": "mocha"
@@ -11,13 +11,14 @@
 	"type": "git",
 	"url": "git+https://github.com/benoit-jpi/signalk-rot-calculation.git"
     },
+    "signalk-plugin-enabled-by-default": true,
     "keywords": [
-	"signalk-node-server-plugin"
+	"signalk-node-server-plugin",
+	"signalk-category-utility"
     ],
     "author": "Jean-Pierre Benoit",
     "license": "ISC",
     "dependencies": {
-	"axios": "*",
 	"debug": "^3.1.0",
 	"github-changes": "^2.0.3"
     },

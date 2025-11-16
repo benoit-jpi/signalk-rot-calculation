@@ -26,7 +26,6 @@ TODO :
 
 *****************************************************************************/
 const debug = require("debug")("signalk:signalk-rot-calculations")
-const axios = require('axios')
 
 degreesToRadians = value => Math.PI / 180 * value
 radiansToDegrees = value => 180 / Math.PI * value
@@ -126,110 +125,112 @@ function computeROT(times, values) {
     const avg = computeCircularMean(values);
 
     const x0 = times[0];
-    // times array mapped to relative instants
+    // times array mapped to relative instants in seconds
     const mappedTimes = times.map((x) => (x - x0)/1000);
-    // values mapped around the average
+    // values mapped around the average and normalized in [-PI;+PI]
     const mappedValues = values.map((y) => normalize(y - avg));
 
+    // compute the slope with least square method
     return computeSlope(mappedTimes, mappedValues);
 }
 
-module.exports = function(app) {
-    const plugin = {}
-    var timerId
+function sendFilteredValue(app, pluginId, value) {
+    try {
+	app.handleMessage(pluginId, {
+	    updates: [{
+		values: [{
+		    path: 'navigation.rateOfTurn',
+		    value: value
+		}]
+	    }]
+	}, 'v2');
 
-    plugin.id = "sk-rot-calculation"
-    plugin.name = "ROT-calculation"
-    plugin.description = "Plugin that computes the self.navigation.rateOfTurn path value"
-
-    plugin.schema = {
-	type: "object",
-	title: "ROT calculation plugin parameters",
-	description: "ROT calculation parameters",
-	properties: {
-	    inputPath: {
-		type: 'string',
-		title: 'Reference source path',
-		default: 'navigation.headingTrue',
-		enum: ['navigation.headingTrue',
-		       'navigation.headingMagnetic',
-		       'navigation.courseOverGroundMagnetic',
-		       'navigation.courseOverGroundTrue']
-	    },
-	    period: {
-		type: 'number',
-		title: 'Number of regression point',
-		default: 10
-	    }
-	}
+    } catch (err) {
+	console.log(err)
     }
+}
 
+module.exports = function(app) {
     const setStatus = app.setPluginStatus || app.setProviderStatus;
+    const unsubscribes = [] // Array to store all disposer functions
 
-    plugin.unsubscribes = [] // Array to store all disposer functions
+    const plugin = {
 
-    plugin.start = function (options) {
+	id: "sk-rot-calculation",
+	name: "ROT-calculation",
+	description: "Plugin that computes the self.navigation.rateOfTurn path value",
 
-	const inputPath = options.inputPath
-        period = options.period
-	let times = [];
-	let values = [];
-
-	const disposer = app.streambundle.getSelfBus(inputPath)
-            .onValue(data => {
-		//		const currentTime = Date.now();
-//		const currentTime = data.timestamp;
-		const currentTime=new Date(data.timestamp).getTime();
-		let currentValue = data.value;
-
-		times.push(currentTime);
-		values.push(currentValue);
-
-		if (values.length > period) {
-		    // remove the first element
-		    times.shift();
-		    values.shift();
-
-		    // compute and publish the rateOfTurn
-		    sendFilteredValue(app, plugin.id, computeROT(times, values));
+	schema: function () {
+	    const schema = {
+		type: "object",
+		title: "ROT calculation plugin parameters",
+		description: "ROT calculation parameters",
+		properties: {	    
+		    inputPath: {
+			type: 'string',
+			title: 'Reference source path',
+			default: 'navigation.headingTrue',
+			enum: ['navigation.headingTrue',
+			       'navigation.headingMagnetic',
+			       'navigation.courseOverGroundMagnetic',
+			       'navigation.courseOverGroundTrue']
+		    },
+		    size: {
+			type: 'number',
+			title: 'Size of the regression array',
+			default: 10
+		    }
 		}
+	    }
+	    return schema
+	},
+	start: function (settings, restartPlugin) {
+	    
+	    app.debug('Plugin started')
 
+	    const inputPath = settings.inputPath
+            size = settings.size
+	    let times = [];
+	    let values = [];
+
+	    const disposer = app.streambundle.getSelfBus(inputPath)
+		  .onValue(data => {
+		      const currentTime=new Date(data.timestamp).getTime();
+		      let currentValue = data.value;
+
+		      times.push(currentTime);
+		      values.push(currentValue);
+
+		      if (values.length > size) {
+			  // remove the first element
+			  times.shift();
+			  values.shift();
+
+			  // compute and publish the rateOfTurn
+			  sendFilteredValue(app, plugin.id, computeROT(times, values));
+		      }
+
+		  });
+
+	    unsubscribes.push(disposer);
+
+	},
+	stop: function () {
+
+	    app.debug('Stopping plugin and unsubscribing from all paths...');
+
+	    // Iterate through the array and execute each disposer function
+	    unsubscribes.forEach(disposer => {
+		if (typeof disposer === 'function') {
+		    disposer(); // Execute the function to stop the stream
+		}
 	    });
 
-	plugin.unsubscribes.push(disposer);
+	    // Clear the array once done
+	    unsubscribes.length = 0;
 
-    }
-		    
-    plugin.stop = function () {
-
-	app.debug('Stopping plugin and unsubscribing from all paths...');
-
-	// Iterate through the array and execute each disposer function
-	plugin.unsubscribes.forEach(disposer => {
-            if (typeof disposer === 'function') {
-		disposer(); // Execute the function to stop the stream
-            }
-	});
-
-	// Clear the array once done
-	plugin.unsubscribes = [];
-
+	}
     }
     return plugin
 
-    function sendFilteredValue(app, pluginId, value) {
-	try {
-	    app.handleMessage(pluginId, {
-		updates: [{
-		    values: [{
-			path: 'navigation.rateOfTurn',
-			value: value
-		    }]
-		}]
-	    });
-
-	} catch (err) {
-	    console.log(err)
-	}
-    }
 }
