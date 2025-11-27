@@ -21,6 +21,12 @@ Signal K server plugin to compute rateOfTurn from multiple references.
 
 Features:
 - Configurable source of reference
+      o ['navigation.headingTrue'] => ['default']
+      o ['navigation.headingMagnetic']
+      o ['navigation.courseOverGroundMagnetic']
+      o ['navigation.courseOverGroundTrue']
+
+- Configurable size of the regression array (default 20)
 
 TODO :
 
@@ -68,7 +74,7 @@ function computeCircularMean(headings) {
     // Math.atan2(y, x) returns angle in radians
     let mean = Math.atan2(avg_y, avg_x);
 
-    // Normalize the result into [0, 2*PI]
+    // Normalize the result into [-PI, PI]
     return normalize(mean);
 }
 
@@ -151,7 +157,7 @@ function sendFilteredValue(app, pluginId, value) {
 }
 
 module.exports = function(app) {
-    const setStatus = app.setPluginStatus || app.setProviderStatus;
+
     const unsubscribes = [] // Array to store all disposer functions
 
     const plugin = {
@@ -178,7 +184,7 @@ module.exports = function(app) {
 		    size: {
 			type: 'number',
 			title: 'Size of the regression array',
-			default: 10
+			default: 20
 		    }
 		}
 	    }
@@ -228,9 +234,9 @@ module.exports = function(app) {
 
 	    // Clear the array once done
 	    unsubscribes.length = 0;
-
-	}
+        }
     }
+
     return plugin
 
 }
